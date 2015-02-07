@@ -8,8 +8,10 @@ var normalizeText = function (text) {
         .replace(/``/g, '"')
         .replace(/''/g, '"')
         .replace(/[\n\r\f]/g, ' ')
-        .replace(/<em>/g, '<term>')
-        .replace(/<\/em>/g, '</term>')
+        .replace(/<(em|strong)>/g, '<term>')
+        .replace(/<\/(em|strong)>/g, '</term>')
+        .replace(/<tt>/g, '<code>')
+        .replace(/<\/tt>/g, '</code>')
         .replace(/<a name[^>]*?>[\s\S]*?<\/a>/gi, '');
 };
 
@@ -17,7 +19,7 @@ var removeTags = function (text) {
     return text.replace(/<\/?[a-z0-9 "=]*?>/gi, '');
 };
 
-var titlePattern = /<h1 class=chapter>[\s\S]*?(<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?)?<a[^>]*?>([\s\S]*)<\/a>[\s\S]*?<\/h1>/mi;
+var titlePattern = /(<h1 class=chapter>[\s\S]*?<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?<a[^>]*?>|<h2[\s\S]*?&nbsp;)([^&]*?)<\/a>[\s\S]*?<\/h[12]>/mi;
 var bodyEndPattern = /(<hr.?>)|(<\/body>)/mi;
 var inSubsection = false;
 
@@ -33,9 +35,9 @@ var bodyPatterns = [
     },
     {
         name: 'paragraph',
-        pattern: /^([\w][\s\S]*?)<p>$/mi,
+        pattern: /^(<a [^>]*?><\/a>)*([\w][\s\S]*?)<p>$/mi,
         handler: function (match) {
-            console.log('<p>' + normalizeText(match[1]) + '</p>');
+            console.log('<p>' + normalizeText(match[2]) + '</p>');
         }
     },
     {
@@ -110,8 +112,16 @@ var processFile = function (fileName, cb) {
     });
 };
 
+console.log('<content title="(learn scheme)">');
+console.log('<body>');
+
 processFile('book-Z-H-9.html', function (err) {
+//processFile('book-Z-H-10.html', function (err) {
     if (err) {
         return console.log('Error: ' + err);
     }
+
+    console.log('</body>');
+    console.log('</content>');
 });
+
