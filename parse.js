@@ -1,20 +1,39 @@
 var fs = require('fs');
-var htmlparser = require('htmlparser2');
 
 var inputDirectory = 'input';
 var outputDirectory = 'output';
 
-var states = {
-    initial: 0,
-    inTitle: 1,
-    body: 2,
-    inQuote: 3,
-    inSource: 4,
-    pastBody: 5,
-    inSubsectionTitle: 6,
-
-    // TODO: References
+var normalizeText = function (text) {
+    return text
+        .replace(/``/g, '"')
+        .replace(/''/g, '"')
+        .replace(/[\n\r\f]/g, ' ')
+        .replace('<em>', '<term>')
+        .replace('</em>', '</term>')
+        .replace(/<a name[^>]*?>[\s\S]*?<\/a>/gi, '');
 };
+
+var titlePattern = /<h1 class=chapter>[\s\S]*?(<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?)?<a[^>]*?>([\s\S]*)<\/a>[\s\S]*?<\/h1>/mi;
+var bodyEndPattern = /(<hr.?>)|(<\/body>)/mi;
+
+var bodyPatterns = [
+    {
+        name: 'quote',
+        pattern: /<span class=epigraph>[\s\S]*?<p>([\s\S]*?)<p>[\s\S]*?<\/a>([\s\S]*?)<p>[\s\S]*?<\/span>/mi,
+        handler: function (match) {
+            console.log('Quote: ' + normalizeText(match[1]));
+            console.log('Quote source: ' + normalizeText(match[2]));
+        }
+    },
+    {
+        name: 'paragraph',
+        pattern: /^([\w][\s\S]*?)<p>$/mi,
+        handler: function (match) {
+            console.log('Paragraph: ' + normalizeText(match[1]));
+        }
+    },
+];
+var bodyPatternCount = bodyPatterns.length;
 
 var processFile = function (fileName, cb) {
     fs.readFile(inputDirectory + '/' + fileName, { encoding: 'utf8' }, function (err, body) {
@@ -22,107 +41,47 @@ var processFile = function (fileName, cb) {
             return cb(err);
         }
 
-        var tagStack = [];
-        var state = states.initial;
-        var buffer = '';
+        var titleMatches = titlePattern.exec(body);
+        if (titleMatches) {
+            var title = titleMatches[2];
+            console.log('Title: ' + title);
 
-        var parser = new htmlparser.Parser({
-            onopentag: function (name, attributes) {
-                switch (state) {
-                    case states.initial:
-                        if (tagStack.length >= 4
-                                && tagStack[tagStack.length - 2].name === 'h1'
-                                && tagStack[tagStack.length - 1].name === 'p'
-                                && name == 'a') {
-                            state = states.inTitle;
-                            buffer = '';
-                        }
-                        break;
-                    
-                    case states.body:
-                        if (name === 'span' && attributes.class === 'epigraph') {
-                            state = states.inQuote;
-                            buffer = '';
-                        } else if (name === 'hr') {
-                            state = states.pastBody;
-                        } else if (name === 'h4') {
-                            state = states.inSubsectionTitle;
-                        } else if (name === 'em') {
-                            buffer += '<term>';
-                        }
-                        break;
+            // Parse after the title
+            var postTitle = body.substr(titleMatches.index + titleMatches[0].length);
 
-                    case states.inQuote:
-                        if (name === 'a') {
-                            console.log('*** Quote body: ' + buffer.trim());
-                            buffer = '';
-                            state = states.inSource;
+            var bodyEndMatches = bodyEndPattern.exec(postTitle);
+            if (bodyEndMatches) {
+                // Parse body content
+                var content = postTitle.substr(0, bodyEndMatches.index);
+
+                while (content.length > 0) {
+                    // Find the first match
+                    var matches = [];
+                    var minIndex = null;
+                    var patternIndex = null;
+                    for (var i = 0; i < bodyPatternCount; i++) {
+                        matches[i] = bodyPatterns[i].pattern.exec(content);
+                        if (matches[i]) {
+                            if (minIndex == null || matches[i].index < minIndex) {
+                                minIndex = matches[i].index;
+                                patternIndex = i;
+                            }
                         }
+                    }
+
+                    // Process the match (if one was found)
+                    if (minIndex == null) {
+                        // No matches, so we're done
                         break;
+                    } else {
+                        // Process the first match
+                        var match = matches[patternIndex];
+                        bodyPatterns[patternIndex].handler(match);
+                        content = content.substr(match.index + match[0].length);
+                    }
                 }
-
-                tagStack.push({
-                    name: name,
-                    attributes: attributes,
-                });
-            },
-
-            /*onopentagname: function (name) {
-            },
-
-            onattribute: function (name, value) {
-            },*/
-
-            ontext: function (text) {
-                buffer += text.replace(/``/g, '"').replace(/''/g, '"').replace(/[\n\r\f]/g, ' ');
-            },
-
-            onclosetag: function (name) {
-                switch (state) {
-                    case states.inTitle:
-                        console.log('*** Title: ' + buffer.trim());
-                        buffer = '';
-                        state = states.body;
-                        break;
-
-                    case states.inQuote:
-                    case states.inSource:
-                        if (name === 'span') {
-                            console.log('*** Quote source: ' + buffer.trim());
-                            state = states.body;
-                            buffer = '';
-                        }
-                        break;
-
-                    case states.body:
-                        if (name === 'p' && buffer.trim().length > 0) {
-                            console.log('Paragraph: ' + buffer.trim());
-                            console.log('');
-                            buffer = '';
-                        } else if (name === 'em') {
-                            buffer += '</term>';
-                        }
-                        break;
-
-                    case states.inSubsectionTitle:
-                        if (name === 'h4') {
-                            console.log('*** Subsection: ' + buffer.trim());
-                            buffer = '';
-                            state = states.body;
-                        }
-                        break;
-                }
-
-                tagStack.pop();
-            },
-
-            onend: function () {
-                console.log('End');
-            },
-        });
-
-        parser.write(body);
-        parser.end();
+            }
+        }
 
         cb();
     });
@@ -135,4 +94,3 @@ processFile('book-Z-H-9.html', function (err) {
 
     console.log('Done');
 });
-
