@@ -8,28 +8,45 @@ var normalizeText = function (text) {
         .replace(/``/g, '"')
         .replace(/''/g, '"')
         .replace(/[\n\r\f]/g, ' ')
-        .replace('<em>', '<term>')
-        .replace('</em>', '</term>')
+        .replace(/<em>/g, '<term>')
+        .replace(/<\/em>/g, '</term>')
         .replace(/<a name[^>]*?>[\s\S]*?<\/a>/gi, '');
+};
+
+var removeTags = function (text) {
+    return text.replace(/<\/?[a-z0-9 "=]*?>/gi, '');
 };
 
 var titlePattern = /<h1 class=chapter>[\s\S]*?(<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?)?<a[^>]*?>([\s\S]*)<\/a>[\s\S]*?<\/h1>/mi;
 var bodyEndPattern = /(<hr.?>)|(<\/body>)/mi;
+var inSubsection = false;
 
 var bodyPatterns = [
     {
         name: 'quote',
         pattern: /<span class=epigraph>[\s\S]*?<p>([\s\S]*?)<p>[\s\S]*?<\/a>([\s\S]*?)<p>[\s\S]*?<\/span>/mi,
         handler: function (match) {
-            console.log('Quote: ' + normalizeText(match[1]));
-            console.log('Quote source: ' + normalizeText(match[2]));
+            console.log('<quote source="' + removeTags(normalizeText(match[2])) + '">');
+            console.log(normalizeText(match[1]));
+            console.log('</quote>');
         }
     },
     {
         name: 'paragraph',
         pattern: /^([\w][\s\S]*?)<p>$/mi,
         handler: function (match) {
-            console.log('Paragraph: ' + normalizeText(match[1]));
+            console.log('<p>' + normalizeText(match[1]) + '</p>');
+        }
+    },
+    {
+        name: 'subsection',
+        pattern: /<h4><a[^>]*?>([\s\S]*?)<\/a><\/h4>/mi,
+        handler: function (match) {
+            if (inSubsection) {
+                console.log('</subsection>');
+            }
+            console.log('<subsection title="' + removeTags(normalizeText(match[1])) + '">');
+            inSubsection = true;
         }
     },
 ];
@@ -44,7 +61,7 @@ var processFile = function (fileName, cb) {
         var titleMatches = titlePattern.exec(body);
         if (titleMatches) {
             var title = titleMatches[2];
-            console.log('Title: ' + title);
+            console.log('<section title="' + title + '">');
 
             // Parse after the title
             var postTitle = body.substr(titleMatches.index + titleMatches[0].length);
@@ -81,6 +98,12 @@ var processFile = function (fileName, cb) {
                     }
                 }
             }
+
+            if (inSubsection) {
+                console.log('</subsection>');
+            }
+
+            console.log('</section>');
         }
 
         cb();
@@ -91,6 +114,4 @@ processFile('book-Z-H-9.html', function (err) {
     if (err) {
         return console.log('Error: ' + err);
     }
-
-    console.log('Done');
 });
