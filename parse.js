@@ -8,22 +8,51 @@ var normalizeText = function (text) {
         .replace(/``/g, '"')
         .replace(/''/g, '"')
         .replace(/[\n\r\f]/g, ' ')
+        .replace(/<p>/g, '')
+        .replace(/<br>/g, '\n')
+        .replace(/<a (name|href)[^>]*?>[\s\S]*?<\/a>/gi, '')
         .replace(/<(em|strong)>/g, '<term>')
         .replace(/<\/(em|strong)>/g, '</term>')
-        .replace(/<tt>/g, '<code>')
-        .replace(/<\/tt>/g, '</code>')
-        .replace(/<a name[^>]*?>[\s\S]*?<\/a>/gi, '');
+        .replace(/<(tt|i)>/g, '<code>')
+        .replace(/<\/(tt|i)>/g, '</code>')
+        ;
 };
 
 var removeTags = function (text) {
     return text.replace(/<\/?[a-z0-9 "=]*?>/gi, '');
 };
 
-var titlePattern = /(<h1 class=chapter>[\s\S]*?<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?<a[^>]*?>|<h2[\s\S]*?&nbsp;)([^&]*?)<\/a>[\s\S]*?<\/h[12]>/mi;
+var formatPre = function (text) {
+    return text
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/<br>/gi, '')
+        .replace(/<i>/gi, '</code>\n<result>')
+        .replace(/<\/i>/gi, '</result>\n<code>')
+        .replace(/<a (name|href)[^>]*?>[\s\S]*?<\/a>/gi, '')
+        .trim()
+        ;
+};
+
 var bodyEndPattern = /(<hr.?>)|(<\/body>)/mi;
+var depth = 0;
 var inSubsection = false;
 
 var bodyPatterns = [
+    {
+        name: 'title',
+        pattern: /(<h1 class=chapter>[\s\S]*?<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?<a[^>]*?>|<h[23][\s\S]*?&nbsp;)([^&]*?)<\/a>[\s\S]*?<\/h[123]>/mi,
+        handler: function (match) {
+            var sectionDepth = parseInt(match[1].substr(2, 1));
+            if (sectionDepth !== NaN) {
+                while (depth-- >= sectionDepth) {
+                    console.log('</section>');
+                }
+
+                console.log('<section title="' + removeTags(normalizeText(match[2])) + '">');
+                depth = sectionDepth;
+            }
+        }
+    },
     {
         name: 'quote',
         pattern: /<span class=epigraph>[\s\S]*?<p>([\s\S]*?)<p>[\s\S]*?<\/a>([\s\S]*?)<p>[\s\S]*?<\/span>/mi,
@@ -35,9 +64,26 @@ var bodyPatterns = [
     },
     {
         name: 'paragraph',
-        pattern: /^(<a [^>]*?><\/a>)*([\w][\s\S]*?)<p>$/mi,
+        pattern: /^(<a [^>]*?><\/a>)*(([\w]|<tt>[^<]*?<\/tt>)[\s\S]*?)<p>$/mi,
         handler: function (match) {
-            console.log('<p>' + normalizeText(match[2]) + '</p>');
+            if (depth > 0) {
+                console.log('<p>' + normalizeText(match[2]) + '</p>');
+            }
+        }
+    },
+    {
+        name: 'resultOnly',
+        pattern: /<tt><i>([\s\S]*?)<\/i><br>\n<\/tt>/mi,
+        handler: function (match) {
+            console.log('<result>\n' + formatPre(match[1]) + '\n</result>');
+        }
+    },
+    {
+        name: 'code',
+        pattern: /<tt>([\s\S]*?)<br>\n<\/tt>/mi,
+        handler: function (match) {
+            var text = '<code>\n' + formatPre(match[1]) + '\n</code>';
+            console.log(text.replace(/<code>\n<\/code>/mgi, ''));
         }
     },
     {
@@ -60,51 +106,44 @@ var processFile = function (fileName, cb) {
             return cb(err);
         }
 
-        var titleMatches = titlePattern.exec(body);
-        if (titleMatches) {
-            var title = titleMatches[2];
-            console.log('<section title="' + title + '">');
+        var bodyEndMatches = bodyEndPattern.exec(body);
+        if (bodyEndMatches) {
+            // Parse body content
+            var content = body.substr(0, bodyEndMatches.index);
 
-            // Parse after the title
-            var postTitle = body.substr(titleMatches.index + titleMatches[0].length);
-
-            var bodyEndMatches = bodyEndPattern.exec(postTitle);
-            if (bodyEndMatches) {
-                // Parse body content
-                var content = postTitle.substr(0, bodyEndMatches.index);
-
-                while (content.length > 0) {
-                    // Find the first match
-                    var matches = [];
-                    var minIndex = null;
-                    var patternIndex = null;
-                    for (var i = 0; i < bodyPatternCount; i++) {
-                        matches[i] = bodyPatterns[i].pattern.exec(content);
-                        if (matches[i]) {
-                            if (minIndex == null || matches[i].index < minIndex) {
-                                minIndex = matches[i].index;
-                                patternIndex = i;
-                            }
+            while (content.length > 0) {
+                // Find the first match
+                var matches = [];
+                var minIndex = null;
+                var patternIndex = null;
+                for (var i = 0; i < bodyPatternCount; i++) {
+                    matches[i] = bodyPatterns[i].pattern.exec(content);
+                    if (matches[i]) {
+                        if (minIndex == null || matches[i].index < minIndex) {
+                            minIndex = matches[i].index;
+                            patternIndex = i;
                         }
                     }
+                }
 
-                    // Process the match (if one was found)
-                    if (minIndex == null) {
-                        // No matches, so we're done
-                        break;
-                    } else {
-                        // Process the first match
-                        var match = matches[patternIndex];
-                        bodyPatterns[patternIndex].handler(match);
-                        content = content.substr(match.index + match[0].length);
-                    }
+                // Process the match (if one was found)
+                if (minIndex == null) {
+                    // No matches, so we're done
+                    break;
+                } else {
+                    // Process the first match
+                    var match = matches[patternIndex];
+                    bodyPatterns[patternIndex].handler(match);
+                    content = content.substr(match.index + match[0].length);
                 }
             }
+        }
 
-            if (inSubsection) {
-                console.log('</subsection>');
-            }
+        if (inSubsection) {
+            console.log('</subsection>');
+        }
 
+        while (depth-- > 0) {
             console.log('</section>');
         }
 
@@ -115,8 +154,8 @@ var processFile = function (fileName, cb) {
 console.log('<content title="(learn scheme)">');
 console.log('<body>');
 
-processFile('book-Z-H-9.html', function (err) {
-//processFile('book-Z-H-10.html', function (err) {
+//processFile('book-Z-H-9.html', function (err) {
+processFile('book-Z-H-10.html', function (err) {
     if (err) {
         return console.log('Error: ' + err);
     }
