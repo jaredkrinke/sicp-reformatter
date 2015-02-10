@@ -3,6 +3,12 @@ var fs = require('fs');
 var inputDirectory = 'input';
 var outputDirectory = 'output';
 
+var removeEntities = function (text) {
+    return text
+        .replace(/&nbsp;/g, ' ')
+        ;
+};
+
 var normalizeText = function (text) {
     return text
         .replace(/``/g, '"')
@@ -10,16 +16,26 @@ var normalizeText = function (text) {
         .replace(/[\n\r\f]/g, ' ')
         .replace(/<p>/g, '')
         .replace(/<br>/g, '\n')
-        .replace(/<a (name|href)[^>]*?>[\s\S]*?<\/a>/gi, '')
+        .replace(/<\/?blockquote>/g, '') // TODO: Probably need some other formatting...
         .replace(/<(em|strong)>/g, '<term>')
         .replace(/<\/(em|strong)>/g, '</term>')
         .replace(/<(tt|i)>/g, '<code>')
         .replace(/<\/(tt|i)>/g, '</code>')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/<a (name|href)[^>]*?>([\s\S]*?)<\/a>/gi, '$2')
+        .replace(/(<img[^>]*?)>/gi, '$1 />')
+        .replace(/(<div align=)([^>]*?)>/gi, '$1"$2">')
         ;
 };
 
 var removeTags = function (text) {
     return text.replace(/<\/?[a-z0-9 "=]*?>/gi, '');
+};
+
+var formatUl = function (text) {
+    return text
+        .replace(/<li>/g, '</li>\n<li>')
+        ;
 };
 
 var formatPre = function (text) {
@@ -29,8 +45,16 @@ var formatPre = function (text) {
         .replace(/<i>/gi, '</code>\n<result>')
         .replace(/<\/i>/gi, '</result>\n<code>')
         .replace(/<a (name|href)[^>]*?>[\s\S]*?<\/a>/gi, '')
+        .replace(/<img[^>]*?>/gi, '')
         .trim()
         ;
+};
+
+var formatTable = function (text) {
+    return removeEntities(text
+        .replace(/([a-z]+)=([a-z0-9%]+)/gi, '$1="$2"')
+        .replace(/(<img[^>]*?)>/gi, '$1 />')
+        );
 };
 
 var bodyEndPattern = /(<hr.?>)|(<\/body>)/mi;
@@ -45,6 +69,11 @@ var bodyPatterns = [
             var sectionDepth = parseInt(match[1].substr(2, 1));
             if (sectionDepth !== NaN) {
                 while (depth-- >= sectionDepth) {
+                    if (inSubsection) {
+                        console.log('</subsection>');
+                        inSubsection = false;
+                    }
+
                     console.log('</section>');
                 }
 
@@ -63,11 +92,26 @@ var bodyPatterns = [
         }
     },
     {
+        name: 'bullets',
+        pattern: /^(<a [^>]*?><\/a>)*<p><ul>[\s\S]*?<li>([\s\S]*?)<\/ul>/mi,
+        handler: function (match) {
+            console.log('<ul>\n<li>' + formatUl(normalizeText(match[2])) + '</li>\n</ul>');
+        }
+    },
+    {
+        name: 'table',
+        pattern: /^(<a [^>]*?><\/a>)*(<p>)?((<div[^<]*?)?<table[\s\S]*?<\/table>(<\/div>)?)/mi,
+        handler: function (match) {
+            console.log(formatTable(match[3]));
+        }
+    },
+    {
         name: 'paragraph',
-        pattern: /^(<a [^>]*?><\/a>)*(([\w]|<tt>[^<]*?<\/tt>)[\s\S]*?)<p>$/mi,
+        // TODO: This is currently used for exercises, but they should have their own formatting...
+        pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w]|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
         handler: function (match) {
             if (depth > 0) {
-                console.log('<p>' + normalizeText(match[2]) + '</p>');
+                console.log('<p>' + normalizeText(match[3]) + '</p>');
             }
         }
     },
@@ -92,6 +136,7 @@ var bodyPatterns = [
         handler: function (match) {
             if (inSubsection) {
                 console.log('</subsection>');
+                inSubsection = false;
             }
             console.log('<subsection title="' + removeTags(normalizeText(match[1])) + '">');
             inSubsection = true;
@@ -143,7 +188,7 @@ var processFile = function (fileName, cb) {
             console.log('</subsection>');
         }
 
-        while (depth-- > 0) {
+        while (--depth > 0) {
             console.log('</section>');
         }
 
