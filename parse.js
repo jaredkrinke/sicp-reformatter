@@ -52,6 +52,7 @@ var formatPre = function (text) {
 
 var formatTable = function (text) {
     return removeEntities(text
+        .replace(/<table/gi, '<table class="table"')
         .replace(/([a-z]+)=([a-z0-9%]+)/gi, '$1="$2"')
         .replace(/(<img[^>]*?)>/gi, '$1 />')
         );
