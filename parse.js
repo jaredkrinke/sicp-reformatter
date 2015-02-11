@@ -164,7 +164,7 @@ var bodyPatterns = [
     },
     {
         name: 'paragraph',
-        pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w\(]|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
+        pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w\(`']|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
         handler: function (match, context) {
             var result = '';
             if (depth > 0) {
