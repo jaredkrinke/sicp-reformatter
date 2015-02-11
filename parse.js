@@ -9,12 +9,38 @@ var removeEntities = function (text) {
         ;
 };
 
+var insertFootnotes = function (text, context) {
+    var pattern = /<a [^>]*?><sup><small>([0-9]+?)<\/small><\/sup><\/a>/gi;
+    var match;
+    var result = '';
+    var index = 0;
+    var footnotes = context.footnotes;
+
+    while (match = pattern.exec(text)) {
+        if (index < match.index) {
+            result += text.substring(index, match.index);
+        }
+
+        var number = parseInt(match[1]);
+        if (footnotes[number]) {
+            result += '<footnote>' + footnotes[number] + '</footnote>';
+        } else {
+            throw 'Broken footnote reference: ' + number;
+        }
+
+        index = match.index + match[0].length;
+    }
+
+    return result + text.substr(index);
+};
+
 var normalizeText = function (text) {
     return text
         .replace(/``/g, '"')
         .replace(/''/g, '"')
         .replace(/[\n\r\f]/g, ' ')
         .replace(/<p>/g, '')
+        .replace(/<\/?font[^>]*?>/g, '')
         .replace(/<br>/g, '\n')
         .replace(/<\/?blockquote>/g, '') // TODO: Probably need some other formatting...
         .replace(/<(em|strong)>/g, '<term>')
@@ -41,7 +67,7 @@ var formatUl = function (text) {
 var formatPre = function (text) {
     return text
         .replace(/&nbsp;/gi, ' ')
-        .replace(/<br>/gi, '')
+        .replace(/<\/?(br|em|sub)>/gi, '')
         .replace(/<i>/gi, '</code>\n<result>')
         .replace(/<\/i>/gi, '</result>\n<code>')
         .replace(/<a (name|href)[^>]*?>[\s\S]*?<\/a>/gi, '')
@@ -95,8 +121,8 @@ var bodyPatterns = [
     {
         name: 'bullets',
         pattern: /^(<a [^>]*?><\/a>)*<p><ul>[\s\S]*?<li>([\s\S]*?)<\/ul>/mi,
-        handler: function (match) {
-            console.log('<ul>\n<li>' + formatUl(normalizeText(match[2])) + '</li>\n</ul>');
+        handler: function (match, context) {
+            console.log('<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[2], context))) + '</li>\n</ul>');
         }
     },
     {
@@ -110,9 +136,9 @@ var bodyPatterns = [
         name: 'paragraph',
         // TODO: This is currently used for exercises, but they should have their own formatting...
         pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w]|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
-        handler: function (match) {
+        handler: function (match, context) {
             if (depth > 0) {
-                console.log('<p>' + normalizeText(match[3]) + '</p>');
+                console.log('<p>' + normalizeText(insertFootnotes(match[3], context)) + '</p>');
             }
         }
     },
@@ -132,7 +158,7 @@ var bodyPatterns = [
         }
     },
     {
-        name: 'subsection',
+        name: 'subsectionHeader',
         pattern: /<h4><a[^>]*?>([\s\S]*?)<\/a><\/h4>/mi,
         handler: function (match) {
             if (inSubsection) {
@@ -146,6 +172,8 @@ var bodyPatterns = [
 ];
 var bodyPatternCount = bodyPatterns.length;
 
+var footnotePattern = /<p><a name="footnote[^>]*?><sup><small>([0-9]+?)<\/small><\/sup><\/a>([\s\S]*?)\n\n/gmi;
+
 var processFile = function (fileName, cb) {
     fs.readFile(inputDirectory + '/' + fileName, { encoding: 'utf8' }, function (err, body) {
         if (err) {
@@ -154,7 +182,20 @@ var processFile = function (fileName, cb) {
 
         var bodyEndMatches = bodyEndPattern.exec(body);
         if (bodyEndMatches) {
+            // Parse all the footnotes first
+            var footnotes = [];
+            var afterBody = body.substr(bodyEndMatches.index + bodyEndMatches[0].length);
+            var match;
+            while (match = footnotePattern.exec(afterBody)) {
+                // TODO: Need better formatting than just this (e.g. embedded code, paragraphs)!
+                footnotes[parseInt(match[1])] = match[2];
+            }
+
             // Parse body content
+            var context = {
+                footnotes: footnotes,
+            };
+
             var content = body.substr(0, bodyEndMatches.index);
 
             while (content.length > 0) {
@@ -179,7 +220,7 @@ var processFile = function (fileName, cb) {
                 } else {
                     // Process the first match
                     var match = matches[patternIndex];
-                    bodyPatterns[patternIndex].handler(match);
+                    bodyPatterns[patternIndex].handler(match, context);
                     content = content.substr(match.index + match[0].length);
                 }
             }
