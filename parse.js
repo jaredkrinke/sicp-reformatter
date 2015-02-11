@@ -91,6 +91,23 @@ var formatTable = function (text) {
 var bodyEndPattern = /(<hr.?>)|(<\/body>)/mi;
 var depth = 0;
 var inSubsection = false;
+var inExercise = false;
+
+var closeOpenTags = function () {
+    var result = '';
+
+    if (inExercise) {
+        result += '</exercise>\n';
+        inExercise = false;
+    }
+    
+    if (inSubsection) {
+        result += '</subsection>\n';
+        inSubsection = false;
+    }
+
+    return result;
+};
 
 var bodyPatterns = [
     {
@@ -101,11 +118,7 @@ var bodyPatterns = [
             var result = '';
             if (sectionDepth !== NaN) {
                 while (depth-- >= sectionDepth) {
-                    if (inSubsection) {
-                        result += '</subsection>';
-                        inSubsection = false;
-                    }
-
+                    result += closeOpenTags();
                     result += '</section>';
                 }
 
@@ -140,13 +153,15 @@ var bodyPatterns = [
             return formatTable(match[3]);
         }
     },
-    // TODO
-    //{
-    //    name: 'exercise',
-    //    pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?<b>Exercise ([0-9.]+?)\.<\/b>([\s\S]*?)<p>$/mi,
-    //    handler: function (match, context) {
-    //    }
-    //},
+    {
+        name: 'exercise',
+        pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?<b>Exercise [0-9.]+?\.<\/b>&nbsp;&nbsp;/mi,
+        handler: function (match, context) {
+            var result = closeOpenTags();
+            inExercise = true;
+            return result + '\n<exercise>';
+        }
+    },
     {
         name: 'paragraph',
         pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w\(]|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
@@ -178,11 +193,7 @@ var bodyPatterns = [
         name: 'subsectionHeader',
         pattern: /<h4><a[^>]*?>([\s\S]*?)<\/a><\/h4>/mi,
         handler: function (match) {
-            var result = '';
-            if (inSubsection) {
-                result += '</subsection>';
-                inSubsection = false;
-            }
+            var result = closeOpenTags();
             result += '<subsection title="' + removeTags(normalizeText(match[1])) + '">';
             inSubsection = true;
 
@@ -193,6 +204,38 @@ var bodyPatterns = [
 var bodyPatternCount = bodyPatterns.length;
 
 var footnotePattern = /<p><a name="footnote[^>]*?><sup><small>([0-9]+?)<\/small><\/sup><\/a>([\s\S]*?)\n\n/gmi;
+
+var parseBody = function (content, context) {
+    var result = '';
+    while (content.length > 0) {
+        // Find the first match
+        var matches = [];
+        var minIndex = null;
+        var patternIndex = null;
+        for (var i = 0; i < bodyPatternCount; i++) {
+            matches[i] = bodyPatterns[i].pattern.exec(content);
+            if (matches[i]) {
+                if (minIndex == null || matches[i].index < minIndex) {
+                    minIndex = matches[i].index;
+                    patternIndex = i;
+                }
+            }
+        }
+    
+        // Process the match (if one was found)
+        if (minIndex == null) {
+            // No matches, so we're done
+            break;
+        } else {
+            // Process the first match
+            var match = matches[patternIndex];
+            result += bodyPatterns[patternIndex].handler(match, context);
+            content = content.substr(match.index + match[0].length);
+        }
+    }
+
+    return result;
+};
 
 var processFile = function (fileName, cb) {
     fs.readFile(inputDirectory + '/' + fileName, { encoding: 'utf8' }, function (err, body) {
@@ -217,39 +260,10 @@ var processFile = function (fileName, cb) {
                 footnotes: footnotes,
             };
 
-            var content = body.substr(0, bodyEndMatches.index);
-
-            while (content.length > 0) {
-                // Find the first match
-                var matches = [];
-                var minIndex = null;
-                var patternIndex = null;
-                for (var i = 0; i < bodyPatternCount; i++) {
-                    matches[i] = bodyPatterns[i].pattern.exec(content);
-                    if (matches[i]) {
-                        if (minIndex == null || matches[i].index < minIndex) {
-                            minIndex = matches[i].index;
-                            patternIndex = i;
-                        }
-                    }
-                }
-
-                // Process the match (if one was found)
-                if (minIndex == null) {
-                    // No matches, so we're done
-                    break;
-                } else {
-                    // Process the first match
-                    var match = matches[patternIndex];
-                    result += bodyPatterns[patternIndex].handler(match, context);
-                    content = content.substr(match.index + match[0].length);
-                }
-            }
+            result += parseBody(body.substr(0, bodyEndMatches.index), context);
         }
 
-        if (inSubsection) {
-            result += '</subsection>';
-        }
+        result += closeOpenTags();
 
         while (--depth > 0) {
             result += '</section>';
