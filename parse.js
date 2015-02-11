@@ -53,6 +53,7 @@ var normalizeText = function (text) {
         .replace(/&eacute;/g, '&#x00E9;')
         .replace(/&uuml;/g, '&#x00FC;')
         .replace(/<a (name|href)[^>]*?>([\s\S]*?)<\/a>/gi, '$2')
+        .replace(/<div align="?left"?><img src="(.*?)"[^>]*?><\/div>/gi, '<image path="$1"/>')
         .replace(/(<img[^>]*?)>/gi, '$1 />')
         .replace(/(<div align=)([^>]*?)>/gi, '$1"$2">')
         ;
@@ -144,6 +145,13 @@ var bodyPatterns = [
         pattern: /^(<a [^>]*?><\/a>)*<p><ul>[\s\S]*?<li>([\s\S]*?)<\/ul>/mi,
         handler: function (match, context) {
             return '<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[2], context))) + '</li>\n</ul>';
+        }
+    },
+    {
+        name: 'image',
+        pattern: /(<p>)?<div align="?left"?><img src="(.*?)"[^>]*?><\/div>/mi,
+        handler: function (match) {
+            return '\n<image path="' + match[2] + '"/>\n';
         }
     },
     {
