@@ -48,6 +48,10 @@ var normalizeText = function (text) {
         .replace(/<(tt|i)>/g, '<code>')
         .replace(/<\/(tt|i)>/g, '</code>')
         .replace(/&nbsp;/g, ' ')
+        .replace(/&Aacute;/g, '&#x00C1;')
+        .replace(/&aacute;/g, '&#x00E1;')
+        .replace(/&eacute;/g, '&#x00E9;')
+        .replace(/&uuml;/g, '&#x00FC;')
         .replace(/<a (name|href)[^>]*?>([\s\S]*?)<\/a>/gi, '$2')
         .replace(/(<img[^>]*?)>/gi, '$1 />')
         .replace(/(<div align=)([^>]*?)>/gi, '$1"$2">')
@@ -135,7 +139,7 @@ var bodyPatterns = [
     {
         name: 'paragraph',
         // TODO: This is currently used for exercises, but they should have their own formatting...
-        pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w]|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
+        pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w\(]|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
         handler: function (match, context) {
             if (depth > 0) {
                 console.log('<p>' + normalizeText(insertFootnotes(match[3], context)) + '</p>');
@@ -242,7 +246,8 @@ console.log('<content title="(learn scheme)">');
 console.log('<body>');
 
 //processFile('book-Z-H-9.html', function (err) {
-processFile('book-Z-H-10.html', function (err) {
+//processFile('book-Z-H-10.html', function (err) {
+processFile('book-Z-H-11.html', function (err) {
     if (err) {
         return console.log('Error: ' + err);
     }
