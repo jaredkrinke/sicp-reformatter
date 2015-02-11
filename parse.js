@@ -98,59 +98,72 @@ var bodyPatterns = [
         pattern: /(<h1 class=chapter>[\s\S]*?<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?<a[^>]*?>|<h[23][\s\S]*?&nbsp;)([^&]*?)<\/a>[\s\S]*?<\/h[123]>/mi,
         handler: function (match) {
             var sectionDepth = parseInt(match[1].substr(2, 1));
+            var result = '';
             if (sectionDepth !== NaN) {
                 while (depth-- >= sectionDepth) {
                     if (inSubsection) {
-                        console.log('</subsection>');
+                        result += '</subsection>';
                         inSubsection = false;
                     }
 
-                    console.log('</section>');
+                    result += '</section>';
                 }
 
-                console.log('<section title="' + removeTags(normalizeText(match[2])) + '">');
+                result += '<section title="' + removeTags(normalizeText(match[2])) + '">';
                 depth = sectionDepth;
             }
+
+            return result;
         }
     },
     {
         name: 'quote',
         pattern: /<span class=epigraph>[\s\S]*?<p>([\s\S]*?)<p>[\s\S]*?<\/a>([\s\S]*?)<p>[\s\S]*?<\/span>/mi,
         handler: function (match) {
-            console.log('<quote source="' + removeTags(normalizeText(match[2])) + '">');
-            console.log(normalizeText(match[1]));
-            console.log('</quote>');
+            var result = '<quote source="' + removeTags(normalizeText(match[2])) + '">';
+            result += normalizeText(match[1]);
+            result += '</quote>';
+            return result;
         }
     },
     {
         name: 'bullets',
         pattern: /^(<a [^>]*?><\/a>)*<p><ul>[\s\S]*?<li>([\s\S]*?)<\/ul>/mi,
         handler: function (match, context) {
-            console.log('<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[2], context))) + '</li>\n</ul>');
+            return '<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[2], context))) + '</li>\n</ul>';
         }
     },
     {
         name: 'table',
         pattern: /^(<a [^>]*?><\/a>)*(<p>)?((<div[^<]*?)?<table[\s\S]*?<\/table>(<\/div>)?)/mi,
         handler: function (match) {
-            console.log(formatTable(match[3]));
+            return formatTable(match[3]);
         }
     },
+    // TODO
+    //{
+    //    name: 'exercise',
+    //    pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?<b>Exercise ([0-9.]+?)\.<\/b>([\s\S]*?)<p>$/mi,
+    //    handler: function (match, context) {
+    //    }
+    //},
     {
         name: 'paragraph',
-        // TODO: This is currently used for exercises, but they should have their own formatting...
         pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w\(]|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
         handler: function (match, context) {
+            var result = '';
             if (depth > 0) {
-                console.log('<p>' + normalizeText(insertFootnotes(match[3], context)) + '</p>');
+                result += '<p>' + normalizeText(insertFootnotes(match[3], context)) + '</p>';
             }
+
+            return result;
         }
     },
     {
         name: 'resultOnly',
         pattern: /<tt><i>([\s\S]*?)<\/i><br>\n<\/tt>/mi,
         handler: function (match) {
-            console.log('<result>\n' + formatPre(match[1]) + '\n</result>');
+            return '<result>\n' + formatPre(match[1]) + '\n</result>';
         }
     },
     {
@@ -158,19 +171,22 @@ var bodyPatterns = [
         pattern: /<tt>([\s\S]*?)<br>\n<\/tt>/mi,
         handler: function (match) {
             var text = '<code>\n' + formatPre(match[1]) + '\n</code>';
-            console.log(text.replace(/<code>\n<\/code>/mgi, ''));
+            return text.replace(/<code>\n<\/code>/mgi, '');
         }
     },
     {
         name: 'subsectionHeader',
         pattern: /<h4><a[^>]*?>([\s\S]*?)<\/a><\/h4>/mi,
         handler: function (match) {
+            var result = '';
             if (inSubsection) {
-                console.log('</subsection>');
+                result += '</subsection>';
                 inSubsection = false;
             }
-            console.log('<subsection title="' + removeTags(normalizeText(match[1])) + '">');
+            result += '<subsection title="' + removeTags(normalizeText(match[1])) + '">';
             inSubsection = true;
+
+            return result;
         }
     },
 ];
@@ -184,6 +200,7 @@ var processFile = function (fileName, cb) {
             return cb(err);
         }
 
+        var result = '';
         var bodyEndMatches = bodyEndPattern.exec(body);
         if (bodyEndMatches) {
             // Parse all the footnotes first
@@ -224,21 +241,21 @@ var processFile = function (fileName, cb) {
                 } else {
                     // Process the first match
                     var match = matches[patternIndex];
-                    bodyPatterns[patternIndex].handler(match, context);
+                    result += bodyPatterns[patternIndex].handler(match, context);
                     content = content.substr(match.index + match[0].length);
                 }
             }
         }
 
         if (inSubsection) {
-            console.log('</subsection>');
+            result += '</subsection>';
         }
 
         while (--depth > 0) {
-            console.log('</section>');
+            result += '</section>';
         }
 
-        cb();
+        cb(null, result);
     });
 };
 
@@ -247,10 +264,12 @@ console.log('<body>');
 
 //processFile('book-Z-H-9.html', function (err) {
 //processFile('book-Z-H-10.html', function (err) {
-processFile('book-Z-H-11.html', function (err) {
+processFile('book-Z-H-11.html', function (err, result) {
     if (err) {
         return console.log('Error: ' + err);
     }
+
+    console.log(result);
 
     console.log('</body>');
     console.log('</content>');
