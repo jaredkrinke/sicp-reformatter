@@ -113,17 +113,17 @@ var closeOpenTags = function () {
 var bodyPatterns = [
     {
         name: 'title',
-        pattern: /(<h1 class=chapter>[\s\S]*?<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?<a[^>]*?>|<h[23][\s\S]*?&nbsp;)([^&]*?)<\/a>[\s\S]*?<\/h[123]>/mi,
+        pattern: /(<html[\s\S]*?)?(<h1 class=chapter>[\s\S]*?<div class=chapterheading[\s\S]*?<\/div>[\s\S]*?<a[^>]*?>|<h[23][\s\S]*?&nbsp;)([^&]*?)<\/a>[\s\S]*?<\/h[123]>/mi,
         handler: function (match) {
-            var sectionDepth = parseInt(match[1].substr(2, 1));
+            var sectionDepth = parseInt(match[2].substr(2, 1));
             var result = '';
             if (sectionDepth !== NaN) {
+                result += closeOpenTags();
                 while (depth-- >= sectionDepth) {
-                    result += closeOpenTags();
-                    result += '</section>';
+                    result += '</section>\n';
                 }
 
-                result += '<section title="' + removeTags(normalizeText(match[2])) + '">';
+                result += '<section title="' + removeTags(normalizeText(match[3])) + '">\n';
                 depth = sectionDepth;
             }
 
@@ -132,11 +132,11 @@ var bodyPatterns = [
     },
     {
         name: 'quote',
-        pattern: /<span class=epigraph>[\s\S]*?<p>([\s\S]*?)<p>[\s\S]*?<\/a>([\s\S]*?)<p>[\s\S]*?<\/span>/mi,
+        pattern: /(<p>)?[\s]*\n?(<div[^>]*?>)?[\s]*\n?(<table[^>]*?><tr><td>)?[\s]*\n?<span class=epigraph>[\s\S]*?<p>([\s\S]*?)<p>[\s\S]*?<\/a>([\s\S]*?)<p>[\s\S]*?<\/span>/mi,
         handler: function (match) {
-            var result = '<quote source="' + removeTags(normalizeText(match[2])) + '">';
-            result += normalizeText(match[1]);
-            result += '</quote>';
+            var result = '<quote source="' + removeTags(normalizeText(match[5])) + '">';
+            result += normalizeText(match[4]);
+            result += '</quote>\n';
             return result;
         }
     },
@@ -144,7 +144,7 @@ var bodyPatterns = [
         name: 'bullets',
         pattern: /^(<a [^>]*?><\/a>)*<p><ul>[\s\S]*?<li>([\s\S]*?)<\/ul>/mi,
         handler: function (match, context) {
-            return '<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[2], context))) + '</li>\n</ul>';
+            return '<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[2], context))) + '</li>\n</ul>\n';
         }
     },
     {
@@ -186,7 +186,7 @@ var bodyPatterns = [
         handler: function (match, context) {
             var result = '';
             if (depth > 0) {
-                result += '<p>' + normalizeText(insertFootnotes(match[3], context)) + '</p>';
+                result += '<p>' + normalizeText(insertFootnotes(match[3], context)) + '</p>\n';
             }
 
             return result;
@@ -196,14 +196,14 @@ var bodyPatterns = [
         name: 'resultOnly',
         pattern: /<tt><i>([\s\S]*?)<\/i><br>\n<\/tt>/mi,
         handler: function (match) {
-            return '<result>\n' + formatPre(match[1]) + '\n</result>';
+            return '<result>\n' + formatPre(match[1]) + '\n</result>\n';
         }
     },
     {
         name: 'code',
         pattern: /<tt>([\s\S]*?)<br>\n<\/tt>/mi,
         handler: function (match) {
-            var text = '<code>\n' + formatPre(match[1]) + '\n</code>';
+            var text = '<code>\n' + formatPre(match[1]) + '\n</code>\n';
             return text.replace(/<code>\n<\/code>/mgi, '');
         }
     },
@@ -269,7 +269,6 @@ var processFile = function (fileName, cb) {
             var afterBody = body.substr(bodyEndMatches.index + bodyEndMatches[0].length);
             var match;
             while (match = footnotePattern.exec(afterBody)) {
-                // TODO: Need better formatting than just this (e.g. embedded code, paragraphs)!
                 footnotes[parseInt(match[1])] = match[2];
             }
 
@@ -283,10 +282,6 @@ var processFile = function (fileName, cb) {
 
         result += closeOpenTags();
 
-        while (--depth > 0) {
-            result += '</section>';
-        }
-
         cb(null, result);
     });
 };
@@ -294,14 +289,38 @@ var processFile = function (fileName, cb) {
 console.log('<content title="(learn scheme)">');
 console.log('<body>');
 
-//processFile('book-Z-H-9.html', function (err) {
-//processFile('book-Z-H-10.html', function (err) {
-processFile('book-Z-H-11.html', function (err, result) {
+var files = [
+    'book-Z-H-9.html',
+    'book-Z-H-10.html',
+    'book-Z-H-11.html',
+];
+
+var processFiles = function (files, cb) {
+    var file = files[0];
+    var remainingFiles = files.slice(1);
+    processFile(file, function (err, result) {
+        if (err) {
+            return cb(err);
+        }
+
+        console.log(result);
+
+        if (remainingFiles.length > 0) {
+            processFiles(remainingFiles, cb);
+        } else {
+            cb(null);
+        }
+    });
+};
+
+processFiles(files, function (err) {
     if (err) {
         return console.log('Error: ' + err);
     }
 
-    console.log(result);
+    while (depth-- > 0) {
+        console.log('</section>');
+    }
 
     console.log('</body>');
     console.log('</content>');
