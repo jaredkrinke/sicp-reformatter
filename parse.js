@@ -81,6 +81,10 @@ var formatPre = function (text) {
         .replace(/<a (name|href)[^>]*?>[\s\S]*?<\/a>/gi, '')
         .replace(/<img[^>]*?>/gi, '')
         .trim()
+        .replace(/<code>\n*/gi, '<code>')
+        .replace(/<result>\n*/gi, '<result>')
+        .replace(/\n*<\/code>/gi, '</code>')
+        .replace(/\n*<\/result>/gi, '</result>')
         ;
 };
 
@@ -199,15 +203,15 @@ var bodyPatterns = [
         name: 'resultOnly',
         pattern: /<tt><i>([\s\S]*?)<\/i><br>\n<\/tt>/mi,
         handler: function (match) {
-            return '<result>\n' + formatPre(match[1]) + '\n</result>\n';
+            return '<result>' + formatPre(match[1]) + '</result>\n';
         }
     },
     {
         name: 'code',
         pattern: /<tt>([\s\S]*?)<br>\n<\/tt>/mi,
         handler: function (match) {
-            var text = '<code>\n' + formatPre(match[1]) + '\n</code>\n';
-            return text.replace(/<code>\n<\/code>/mgi, '');
+            var text = '<code>' + formatPre(match[1]) + '</code>\n';
+            return text.replace(/<code><\/code>/mgi, '');
         }
     },
     {
