@@ -45,6 +45,7 @@ var normalizeText = function (text) {
         .replace(/<\/?blockquote>/g, '') // TODO: Probably need some other formatting...
         .replace(/<(em|strong)>/g, '<term>')
         .replace(/<\/(em|strong)>/g, '</term>')
+        .replace(/<tt>...<\/tt>/g, '...')
         .replace(/<(tt|i)>/g, '<code>')
         .replace(/<\/(tt|i)>/g, '</code>')
         .replace(/&nbsp;/g, ' ')
@@ -53,6 +54,7 @@ var normalizeText = function (text) {
         .replace(/&eacute;/g, '&#x00E9;')
         .replace(/&uuml;/g, '&#x00FC;')
         .replace(/&middot;/g, '&#x00B7;')
+        .replace(/&plusmn;/g, '&#x00B1;')
         .replace(/<a (name|href)[^>]*?>([\s\S]*?)<\/a>/gi, '$2')
         .replace(/<div align="?left"?><img src="(.*?)"[^>]*?><\/div>/gi, '<image path="$1"/>')
         .replace(/(<img[^>]*?)>/gi, '$1 />')
@@ -143,9 +145,9 @@ var bodyPatterns = [
     },
     {
         name: 'bullets',
-        pattern: /^(<a [^>]*?><\/a>)*<p><ul>[\s\S]*?<li>([\s\S]*?)<\/ul>/mi,
+        pattern: /(<a [^>]*?><\/a>)*(<p>)?<ul>[\s\S]*?<li>([\s\S]*?)<\/ul>/mi,
         handler: function (match, context) {
-            return '<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[2], context))) + '</li>\n</ul>\n';
+            return '<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[3], context))) + '</li>\n</ul>\n';
         }
     },
     {
@@ -157,10 +159,10 @@ var bodyPatterns = [
     },
     {
         name: 'figure',
-        pattern: /^(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td><img src="(.*?)"[^>]*?>[\s\S]*?<\/td><\/tr><caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
+        pattern: /^(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td>(<div[^>]*?>)?<img src="(.*?)"[^>]*?>[\s\S]*?<\/td><\/tr><caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
         handler: function (match) {
-            var result = '\n<figure image="' + match[3] + '">';
-            result += normalizeText(match[4]);
+            var result = '\n<figure image="' + match[4] + '">';
+            result += normalizeText(match[5]);
             result += '</figure>\n';
             return result;
         }
@@ -183,7 +185,7 @@ var bodyPatterns = [
     },
     {
         name: 'paragraph',
-        pattern: /^(<p>)*(<a [^>]*?><\/a>)*(\n|<br>)?(([\w\(`']|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
+        pattern: /^(<p>)*(<a [^>]*?><\/a>)*(\n|<br>)?(([\w\(`']|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>/mi,
         handler: function (match, context) {
             var result = '';
             if (depth > 0) {
@@ -296,6 +298,7 @@ var files = [
     'book-Z-H-11.html',
     'book-Z-H-12.html',
     'book-Z-H-13.html',
+    'book-Z-H-14.html',
 ];
 
 var processFiles = function (files, cb) {
