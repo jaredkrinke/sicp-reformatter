@@ -52,6 +52,7 @@ var normalizeText = function (text) {
         .replace(/&aacute;/g, '&#x00E1;')
         .replace(/&eacute;/g, '&#x00E9;')
         .replace(/&uuml;/g, '&#x00FC;')
+        .replace(/&middot;/g, '&#x00B7;')
         .replace(/<a (name|href)[^>]*?>([\s\S]*?)<\/a>/gi, '$2')
         .replace(/<div align="?left"?><img src="(.*?)"[^>]*?><\/div>/gi, '<image path="$1"/>')
         .replace(/(<img[^>]*?)>/gi, '$1 />')
@@ -182,11 +183,11 @@ var bodyPatterns = [
     },
     {
         name: 'paragraph',
-        pattern: /^(<p>)?(<a [^>]*?><\/a>)*\n?(([\w\(`']|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
+        pattern: /^(<p>)*(<a [^>]*?><\/a>)*(\n|<br>)?(([\w\(`']|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>$/mi,
         handler: function (match, context) {
             var result = '';
             if (depth > 0) {
-                result += '<p>' + normalizeText(insertFootnotes(match[3], context)) + '</p>\n';
+                result += '<p>' + normalizeText(insertFootnotes(match[4], context)) + '</p>\n';
             }
 
             return result;
@@ -293,6 +294,8 @@ var files = [
     'book-Z-H-9.html',
     'book-Z-H-10.html',
     'book-Z-H-11.html',
+    'book-Z-H-12.html',
+    'book-Z-H-13.html',
 ];
 
 var processFiles = function (files, cb) {
