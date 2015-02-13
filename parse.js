@@ -75,7 +75,7 @@ var formatUl = function (text) {
 var formatPre = function (text) {
     return text
         .replace(/&nbsp;/gi, ' ')
-        .replace(/<\/?(br|em|sub)>/gi, '')
+        .replace(/<\/?(br|em|sub|tt)>/gi, '')
         .replace(/<i>/gi, '</code>\n<result>')
         .replace(/<\/i>/gi, '</result>\n<code>')
         .replace(/<a (name|href)[^>]*?>[\s\S]*?<\/a>/gi, '')
@@ -93,6 +93,8 @@ var formatTable = function (text) {
         .replace(/<table/gi, '<table class="table"')
         .replace(/([a-z]+)=([a-z0-9%]+)/gi, '$1="$2"')
         .replace(/(<img[^>]*?)>/gi, '$1 />')
+        .replace(/<tt>/gi, '<code>')
+        .replace(/<\/tt>/gi, '</code>')
         );
 };
 
@@ -173,9 +175,9 @@ var bodyPatterns = [
     },
     {
         name: 'table',
-        pattern: /^(<a [^>]*?><\/a>)*(<p>)?((<div[^<]*?)?<table[\s\S]*?<\/table>(<\/div>)?)/mi,
+        pattern: /^(<a [^>]*?><\/a>)*(<p>)?(<div[^<]*?)?(<table[\s\S]*?<\/table>)(<\/div>)?/mi,
         handler: function (match) {
-            return formatTable(match[3]);
+            return formatTable(match[4]);
         }
     },
     {
@@ -208,10 +210,19 @@ var bodyPatterns = [
     },
     {
         name: 'code',
-        pattern: /<tt>([\s\S]*?)<br>\n<\/tt>/mi,
+        pattern: /<tt>([\s\S]*?)<br>\n(<tt>([^<]*?)<\/tt>)?<\/tt>/mi,
         handler: function (match) {
-            var text = '<code>' + formatPre(match[1]) + '</code>\n';
-            return text.replace(/<code><\/code>/mgi, '');
+            var text = '<code>' + formatPre(match[1]);
+            if (match[3]) {
+                text += formatPre('<i>' + match[3] + '</i>');
+            }
+
+            text += '</code>\n';
+
+            return text
+                .replace(/<code><\/code>/mgi, '')
+                .replace(/<\/result>\n\n<result>/mgi, '\n')
+                ;
         }
     },
     {
@@ -296,14 +307,10 @@ var processFile = function (fileName, cb) {
 console.log('<content title="(learn scheme)">');
 console.log('<body>');
 
-var files = [
-    'book-Z-H-9.html',
-    'book-Z-H-10.html',
-    'book-Z-H-11.html',
-    'book-Z-H-12.html',
-    'book-Z-H-13.html',
-    'book-Z-H-14.html',
-];
+var files = [];
+for (var i = 9; i <= 35; i++) {
+    files.push('book-Z-H-' + i + '.html');
+}
 
 var processFiles = function (files, cb) {
     var file = files[0];
