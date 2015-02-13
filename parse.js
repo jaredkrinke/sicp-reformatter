@@ -165,7 +165,7 @@ var bodyPatterns = [
     },
     {
         name: 'figure',
-        pattern: /^(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td>(<div[^>]*?>)?<img src="(.*?)"[^>]*?>[\s\S]*?<\/td><\/tr><caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
+        pattern: /^(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td>(<div[^>]*?>)?\n?<img src="(.*?)"[^>]*?>[\s\S]*?<\/td><\/tr><caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
         handler: function (match) {
             var result = '\n<figure image="' + match[4] + '">';
             result += normalizeText(match[5]);
