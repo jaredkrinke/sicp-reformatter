@@ -42,7 +42,7 @@ var normalizeText = function (text) {
         .replace(/<p>/g, '')
         .replace(/<\/?font[^>]*?>/g, '')
         .replace(/<br>/g, '\n')
-        .replace(/<\/?(blockquote|div)>/g, '')
+        .replace(/<\/?blockquote>/g, '')
         .replace(/<(em|strong)>/g, '<term>')
         .replace(/<\/(em|strong)>/g, '</term>')
         .replace(/<tt>...<\/tt>/g, '...')
@@ -60,7 +60,7 @@ var normalizeText = function (text) {
         .replace(/<a (name|href)[^>]*?>([\s\S]*?)<\/a>/gi, '$2')
         .replace(/<div align="?left"?><img src="(.*?)"[^>]*?><\/div>/gi, '<image path="$1"/>')
         .replace(/(<img[^>]*?)>/gi, '$1 />')
-        .replace(/(<div align=)([^>]*?)>/gi, '$1"$2">')
+        .replace(/<\/?div[^>]*?>/g, '')
         ;
 };
 
@@ -321,8 +321,7 @@ console.log('<content title="(learn scheme)">');
 console.log('<body>');
 
 var files = [];
-//for (var i = 9; i <= 35; i++) {
-for (var i = 24; i <= 24; i++) {
+for (var i = 9; i <= 35; i++) {
     files.push('book-Z-H-' + i + '.html');
 }
 
