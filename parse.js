@@ -49,6 +49,7 @@ var normalizeText = function (text) {
         .replace(/<(tt|i)>/g, '<code>')
         .replace(/<\/(tt|i)>/g, '</code>')
         .replace(/&nbsp;/g, ' ')
+        .replace(/&times;/g, '&#x00D7;')
         .replace(/&Aacute;/g, '&#x00C1;')
         .replace(/&aacute;/g, '&#x00E1;')
         .replace(/&Agrave;/g, '&#x00C0;')
