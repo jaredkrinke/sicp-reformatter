@@ -62,6 +62,8 @@ var normalizeText = function (text) {
         .replace(/<div align="?left"?><img src="(.*?)"[^>]*?><\/div>/gi, '<image path="$1"/>')
         .replace(/(<img[^>]*?)>/gi, '$1 />')
         .replace(/<\/?div[^>]*?>/g, '')
+        .replace(/<table border=0>/g, '<table border="0">')
+        .replace(/<td valign=top ?>/g, '<td valign="top">')
         ;
 };
 
@@ -98,6 +100,7 @@ var formatTable = function (text) {
         .replace(/(<img[^>]*?)>/gi, '$1 />')
         .replace(/<tt>/gi, '<code>')
         .replace(/<\/tt>/gi, '</code>')
+        .replace(/<p>/gi, '')
         );
 };
 
@@ -189,7 +192,7 @@ var bodyPatterns = [
     },
     {
         name: 'table',
-        pattern: /^(<a [^>]*?><\/a>)*(<p>)?(<div[^<]*?)?(<table[\s\S]*?<\/table>)(<\/div>)?/mi,
+        pattern: /(<a [^>]*?><\/a>)*(<p>)?(<div[^<]*?)?(<table[\s\S]*?<\/table>)(<\/div>)?/mi,
         handler: function (match) {
             return formatTable(match[4]);
         }
