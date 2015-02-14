@@ -42,7 +42,7 @@ var normalizeText = function (text) {
         .replace(/<p>/g, '')
         .replace(/<\/?font[^>]*?>/g, '')
         .replace(/<br>/g, '\n')
-        .replace(/<\/?blockquote>/g, '') // TODO: Probably need some other formatting...
+        .replace(/<\/?(blockquote|div)>/g, '')
         .replace(/<(em|strong)>/g, '<term>')
         .replace(/<\/(em|strong)>/g, '</term>')
         .replace(/<tt>...<\/tt>/g, '...')
@@ -51,6 +51,8 @@ var normalizeText = function (text) {
         .replace(/&nbsp;/g, ' ')
         .replace(/&Aacute;/g, '&#x00C1;')
         .replace(/&aacute;/g, '&#x00E1;')
+        .replace(/&Agrave;/g, '&#x00C0;')
+        .replace(/&agrave;/g, '&#x00E0;')
         .replace(/&eacute;/g, '&#x00E9;')
         .replace(/&uuml;/g, '&#x00FC;')
         .replace(/&middot;/g, '&#x00B7;')
@@ -164,11 +166,22 @@ var bodyPatterns = [
         }
     },
     {
+        name: 'figureWithContentOnly',
+        pattern: /(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td><div[^>]*?>([\s\S]*?)<\/td>[\s\S]*?<caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
+        handler: function (match) {
+            var result = '\n<figure>';
+            result += '<content>' + normalizeText(match[3]) + '</content>';
+            result += '<caption>' + normalizeText(match[4]) + '</caption>';
+            result += '</figure>\n';
+            return result;
+        }
+    },
+    {
         name: 'figure',
         pattern: /^(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td>(<div[^>]*?>)?\n?<img src="(.*?)"[^>]*?>[\s\S]*?<\/td><\/tr><caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
         handler: function (match) {
             var result = '\n<figure image="' + match[4] + '">';
-            result += normalizeText(match[5]);
+            result += '<caption>' + normalizeText(match[5]) + '</caption>';
             result += '</figure>\n';
             return result;
         }
@@ -210,11 +223,11 @@ var bodyPatterns = [
     },
     {
         name: 'code',
-        pattern: /<tt>([\s\S]*?)<br>\n(<tt>([^<]*?)<\/tt>)?<\/tt>/mi,
+        pattern: /<tt>([\s\S]*?)(<\/tt><p>|<br>\n(<tt>([^<]*?)<\/tt>)?<\/tt>)/mi,
         handler: function (match) {
             var text = '<code>' + formatPre(match[1]);
-            if (match[3]) {
-                text += formatPre('<i>' + match[3] + '</i>');
+            if (match[4]) {
+                text += formatPre('<i>' + match[4] + '</i>');
             }
 
             text += '</code>\n';
@@ -308,7 +321,8 @@ console.log('<content title="(learn scheme)">');
 console.log('<body>');
 
 var files = [];
-for (var i = 9; i <= 35; i++) {
+//for (var i = 9; i <= 35; i++) {
+for (var i = 24; i <= 24; i++) {
     files.push('book-Z-H-' + i + '.html');
 }
 
