@@ -166,22 +166,22 @@ var bodyPatterns = [
         }
     },
     {
-        name: 'figureWithContentOnly',
-        pattern: /(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td><div[^>]*?>([\s\S]*?)<\/td>[\s\S]*?<caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
+        name: 'figureWithImageOnly',
+        pattern: /^(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td>(<div[^>]*?>)?\n?<img src="(.*?)"[^>]*?>[\s\S]*?<\/td><\/tr><caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
         handler: function (match) {
-            var result = '\n<figure>';
-            result += '<content>' + normalizeText(match[3]) + '</content>';
-            result += '<caption>' + normalizeText(match[4]) + '</caption>';
+            var result = '\n<figure image="' + match[4] + '">';
+            result += '<caption>' + normalizeText(match[5]) + '</caption>';
             result += '</figure>\n';
             return result;
         }
     },
     {
         name: 'figure',
-        pattern: /^(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td>(<div[^>]*?>)?\n?<img src="(.*?)"[^>]*?>[\s\S]*?<\/td><\/tr><caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
-        handler: function (match) {
-            var result = '\n<figure image="' + match[4] + '">';
-            result += '<caption>' + normalizeText(match[5]) + '</caption>';
+        pattern: /(<a [^>]*?><\/a>)*(<p>)?<div align=left[^>]*?><table[^>]*?><tr><td>([\s\S]*?)<\/td>[\s\S]*?<caption[^>]*?>[\s\S]*?<b>Figure [0-9.]+?:?<\/b>&nbsp;&nbsp;([\s\S]*?)<\/div><\/caption>[\s\S]*?<\/table><\/div>/mi,
+        handler: function (match, context) {
+            var result = '\n<figure>';
+            result += '<content>' + parseBody(match[3], context) + '</content>';
+            result += '<caption>' + normalizeText(match[4]) + '</caption>';
             result += '</figure>\n';
             return result;
         }
