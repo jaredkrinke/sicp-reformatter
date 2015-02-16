@@ -9,7 +9,7 @@ var removeEntities = function (text) {
         ;
 };
 
-var insertFootnotes = function (text, context) {
+var insertFootnoteReferences = function (text, context) {
     var pattern = /<a [^>]*?><sup><small>([0-9]+?)<\/small><\/sup><\/a>/gi;
     var match;
     var result = '';
@@ -23,7 +23,7 @@ var insertFootnotes = function (text, context) {
 
         var number = parseInt(match[1]);
         if (footnotes[number]) {
-            result += '<footnote>' + footnotes[number] + '</footnote>';
+            result += '<footnote number="' + number + '"/>';
         } else {
             throw 'Broken footnote reference: ' + number;
         }
@@ -49,12 +49,14 @@ var normalizeText = function (text) {
         .replace(/<(tt|i)>/g, '<code>')
         .replace(/<\/(tt|i)>/g, '</code>')
         .replace(/&nbsp;/g, ' ')
+        .replace(/&curren;/g, '&#x00A4;')
         .replace(/&times;/g, '&#x00D7;')
         .replace(/&Aacute;/g, '&#x00C1;')
         .replace(/&aacute;/g, '&#x00E1;')
         .replace(/&Agrave;/g, '&#x00C0;')
         .replace(/&agrave;/g, '&#x00E0;')
         .replace(/&eacute;/g, '&#x00E9;')
+        .replace(/&ouml;/g, '&#x00F6;')
         .replace(/&uuml;/g, '&#x00FC;')
         .replace(/&middot;/g, '&#x00B7;')
         .replace(/&plusmn;/g, '&#x00B1;')
@@ -159,7 +161,7 @@ var bodyPatterns = [
         name: 'bullets',
         pattern: /(<a [^>]*?><\/a>)*(<p>)?<ul>[\s\S]*?<li>([\s\S]*?)<\/ul>/mi,
         handler: function (match, context) {
-            return '<ul>\n<li>' + formatUl(normalizeText(insertFootnotes(match[3], context))) + '</li>\n</ul>\n';
+            return '<ul>\n<li>' + formatUl(normalizeText(insertFootnoteReferences(match[3], context))) + '</li>\n</ul>\n';
         }
     },
     {
@@ -208,11 +210,11 @@ var bodyPatterns = [
     },
     {
         name: 'paragraph',
-        pattern: /^(<p>)*(<a [^>]*?><\/a>)*(\n|<br>)?(([\w\(`']|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>/mi,
+        pattern: /^(<p>)*(<a [^>]*?><\/a>)*(\n|<br>)?(([\w\(`'&]|<(b|tt)>[^<]*?<\/(tt|b)>)[\s\S]*?)<p>/mi,
         handler: function (match, context) {
             var result = '';
             if (depth > 0) {
-                result += '<p>' + normalizeText(insertFootnotes(match[4], context)) + '</p>\n';
+                result += '<p>' + normalizeText(insertFootnoteReferences(match[4], context)) + '</p>\n';
             }
 
             return result;
@@ -256,7 +258,7 @@ var bodyPatterns = [
 ];
 var bodyPatternCount = bodyPatterns.length;
 
-var footnotePattern = /<p><a name="footnote[^>]*?><sup><small>([0-9]+?)<\/small><\/sup><\/a>([\s\S]*?)\n\n/gmi;
+var footnotePattern = /<p><a name="footnote[^>]*?><sup><small>([0-9]+?)<\/small><\/sup><\/a> ?/gmi;
 
 var parseBody = function (content, context) {
     var result = '';
@@ -287,6 +289,14 @@ var parseBody = function (content, context) {
         }
     }
 
+    // Now actually insert footnote content
+    var pattern = /<footnote number="([0-9]+?)"\/>/gm;
+    var beforeFootnotes = result;
+    var match;
+    while (match = pattern.exec(beforeFootnotes)) {
+        result = result.replace(match[0], '\n<footnote>' + parseBody(context.footnotes[parseInt(match[1])] + '\n<p>', context) + '</footnote>\n');
+    }
+
     return result;
 };
 
@@ -299,12 +309,26 @@ var processFile = function (fileName, cb) {
         var result = '';
         var bodyEndMatches = bodyEndPattern.exec(body);
         if (bodyEndMatches) {
-            // Parse all the footnotes first
+            // Extract all the footnotes first
             var footnotes = [];
-            var afterBody = body.substr(bodyEndMatches.index + bodyEndMatches[0].length);
-            var match;
-            while (match = footnotePattern.exec(afterBody)) {
-                footnotes[parseInt(match[1])] = match[2];
+            var footnoteSectionPattern = /<div class="?footnote"?[^>]*?>([\s\S]*)<\/div>\n*<p><div class="?navigation/gmi;
+            var footnoteSectionMatch = footnoteSectionPattern.exec(body);
+            if (footnoteSectionMatch) {
+                var footnoteSection = footnoteSectionMatch[1];
+                var lastNumber;
+                var lastIndex;
+                var match;
+                while (match = footnotePattern.exec(footnoteSection)) {
+                    if (lastIndex !== undefined) {
+                        footnotes[lastNumber] = footnoteSection.substring(lastIndex, match.index);
+                    }
+                    lastIndex = match.index + match[0].length;
+                    lastNumber = parseInt(match[1]);
+                }
+
+                if (lastIndex !== undefined) {
+                    footnotes[lastNumber] = footnoteSection.substring(lastIndex);
+                }
             }
 
             // Parse body content
