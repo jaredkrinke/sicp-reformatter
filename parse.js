@@ -229,11 +229,11 @@ var bodyPatterns = [
     },
     {
         name: 'code',
-        pattern: /<tt>([\s\S]*?)(<\/tt><p>|<br>\n(<tt>([^<]*?)<\/tt>)?<\/tt>)/mi,
+        pattern: /<tt>([\s\S]*?)(<\/tt>(<p>|<br>)|<br>\n(<tt>([^<]*?)<\/tt>)?<\/tt>)/mi,
         handler: function (match) {
             var text = '<code>' + formatPre(match[1]);
-            if (match[4]) {
-                text += formatPre('<i>' + match[4] + '</i>');
+            if (match[5]) {
+                text += formatPre('<i>' + match[5] + '</i>');
             }
 
             text += '</code>\n';
@@ -242,6 +242,14 @@ var bodyPatterns = [
                 .replace(/<code><\/code>/mgi, '')
                 .replace(/<\/result>\n\n<result>/mgi, '\n')
                 ;
+        }
+    },
+    {
+        name: 'codeInQuote',
+        pattern: /<blockquote>\n<p><a [^>]*?><\/a>(<tt>[\s\S]*?)<\/blockquote>/mi,
+        handler: function (match, context) {
+            var parts = parseBody(match[1], context, true);
+            return parts.result + '\n<p>' + normalizeText(parts.extra) + '</p>\n';
         }
     },
     {
@@ -260,7 +268,7 @@ var bodyPatternCount = bodyPatterns.length;
 
 var footnotePattern = /<p><a name="footnote[^>]*?><sup><small>([0-9]+?)<\/small><\/sup><\/a> ?/gmi;
 
-var parseBody = function (content, context) {
+var parseBody = function (content, context, returnExtra) {
     var result = '';
     while (content.length > 0) {
         // Find the first match
@@ -295,6 +303,13 @@ var parseBody = function (content, context) {
     var match;
     while (match = pattern.exec(beforeFootnotes)) {
         result = result.replace(match[0], '\n<footnote>' + parseBody(context.footnotes[parseInt(match[1])] + '\n<p>', context) + '</footnote>\n');
+    }
+
+    if (returnExtra) {
+        return {
+            result: result,
+            extra: content,
+        };
     }
 
     return result;
