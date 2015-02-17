@@ -266,10 +266,7 @@ var bodyPatterns = [
 
             text += '</code>\n';
 
-            return text
-                .replace(/<code><\/code>/mgi, '')
-                .replace(/<\/result>\n\n<result>/mgi, '\n')
-                ;
+            return text;
         }
     },
     {
@@ -336,6 +333,12 @@ var parseBody = function (content, context, returnExtra) {
     while (match = pattern.exec(beforeFootnotes)) {
         result = result.replace(match[0], '\n<footnote>' + parseBody(context.footnotes[parseInt(match[1])] + '\n<p>', context) + '</footnote>\n');
     }
+
+    // Finally clean up empty code/result blocks
+    result = result
+        .replace(/<code><\/code>\n*/mgi, '')
+        .replace(/<\/result>\n*<result>/mgi, '\n')
+        ;
 
     if (returnExtra) {
         return {
