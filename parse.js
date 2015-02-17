@@ -106,6 +106,34 @@ var formatTable = function (text) {
         );
 };
 
+var removeNestedCode = function (text) {
+    var pattern = /<\/?tt>/gm;
+    var match;
+    var depth = 0;
+    var lastIndex = 0;
+    var result = ''
+    while (match = pattern.exec(text)) {
+        var open = (match[0].length == 4);
+
+        // Ignore nested opening and closing tags
+        if ((open && depth > 0) || (!open && depth > 1)) {
+            // Nested
+            result += text.substring(lastIndex, match.index);
+            lastIndex = match.index + match[0].length;
+        }
+
+        depth += (open ? 1 : -1);
+        if (depth < 0) {
+            // Ignore orphaned closing tags
+            depth = 0;
+        }
+    }
+
+    result += text.substr(lastIndex);
+
+    return result;
+};
+
 var bodyEndPattern = /(<hr.?>)|(<\/body>)/mi;
 var depth = 0;
 var inSubsection = false;
@@ -270,6 +298,10 @@ var footnotePattern = /<p><a name="footnote[^>]*?><sup><small>([0-9]+?)<\/small>
 
 var parseBody = function (content, context, returnExtra) {
     var result = '';
+
+    // First, remove nested code blocks
+    content = removeNestedCode(content);
+
     while (content.length > 0) {
         // Find the first match
         var matches = [];
