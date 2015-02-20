@@ -331,7 +331,7 @@ var parseBody = function (content, context, returnExtra) {
     var beforeFootnotes = result;
     var match;
     while (match = pattern.exec(beforeFootnotes)) {
-        result = result.replace(match[0], '\n<footnote>' + parseBody(context.footnotes[parseInt(match[1])] + '\n<p>', context) + '</footnote>\n');
+        result = result.replace(match[0], '<footnote>' + parseBody(context.footnotes[parseInt(match[1])] + '\n<p>', context) + '</footnote>');
     }
 
     // Finally clean up empty code/result blocks
