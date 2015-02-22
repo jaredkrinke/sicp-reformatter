@@ -16,30 +16,40 @@ if (process.argv.length === 3) {
         for (var i = 0, count = nodes.length; i < count; i++) {
             var node = nodes[i];
             if (node.localName === 'code' && i + 1 < count) {
-                // If a result follows, assume this code should generate the result
-                var nextNode = nodes[i + 1];
-                if (nextNode.localName === 'result') {
-                    var interpreter = new jsLisp.Interpreter();
-                    var expectedResult = nextNode.textContent.trim();
-                    var input = node.textContent.trim();
-                    var actualResult;
-                    try {
-                        actualResult = interpreter.format(interpreter.evaluate(input));
-                    } catch (e) {
-                        // Use undefined result to indicate errors
-                    }
+                var interpreter = new jsLisp.Interpreter();
+                var input = node.textContent.replace(/[\n\r]/g, ' ').trim();
 
-                    // Log result
-                    if (actualResult === undefined) {
-                        // Code didn't compile
-                        console.log('*** Failed to compile: ' + input);
-                    } else if (actualResult === expectedResult) {
-                        // Got the expected result
-                        console.log(input + ' -> ' + expectedResult);
+                // Evaluate the code
+                var compiled = false;
+                var actualResult = undefined;
+                try {
+                    actualResult = interpreter.format(interpreter.evaluate(input));
+                    compiled = true;
+                } catch (e) {
+                    actualResult = e.toString();
+                }
+
+                if (compiled) {
+                    // If a result element follows, assume this code should generate the result
+                    var nextNode = nodes[i + 1];
+                    if (nextNode.localName === 'result') {
+                        var expectedResult = nextNode.textContent.trim();
+
+                        // Log result
+                        if (actualResult === expectedResult) {
+                            // Got the expected result
+                            //console.log(input + ' -> ' + expectedResult);
+                        } else {
+                            // Got a different result
+                            console.log('*** Unexpected result: ' + input + ' -> ' + actualResult + '; expected: ' + expectedResult);
+                        }
                     } else {
-                        // Got a different result
-                        console.log('*** Unexpected result: ' + input + ' -> ' + actualResult + '; expected: ' + expectedResult);
+                        // Just log the code if there's no following result
+                        //console.log(input + ' (not evaluated)');
                     }
+                } else {
+                    // Code didn't compile
+                    console.log('*** Failed to compile: ' + input + ' -> ' + actualResult);
                 }
             }
         }
