@@ -12,7 +12,8 @@ if (process.argv.length === 3) {
 
         // Make sure that code blocks produce the expected results
         var doc = (new DOMParser()).parseFromString(body);
-        var nodes = xpath.select('//code|//result', doc);
+        var inlineCodeFilter = '//p//code[count(parent::footnote) = 0] | //figure/caption/code | //ul//code';
+        var nodes = xpath.select('//code[count(.|' + inlineCodeFilter + ') > count(' + inlineCodeFilter + ')]|//result', doc);
         for (var i = 0, count = nodes.length; i < count; i++) {
             var node = nodes[i];
             if (node.localName === 'code' && i + 1 < count) {
@@ -23,7 +24,10 @@ if (process.argv.length === 3) {
                 var compiled = false;
                 var actualResult = undefined;
                 try {
-                    actualResult = interpreter.format(interpreter.evaluate(input));
+                    actualResult = interpreter.evaluate(input);
+                    if (actualResult !== undefined) {
+                        actualResult = interpreter.format(actualResult);
+                    }
                     compiled = true;
                 } catch (e) {
                     actualResult = e.toString();
