@@ -16,7 +16,7 @@ if (process.argv.length === 3) {
         var nodes = xpath.select('//code[count(.|' + inlineCodeFilter + ') > count(' + inlineCodeFilter + ')]|//result', doc);
         for (var i = 0, count = nodes.length; i < count; i++) {
             var node = nodes[i];
-            if (node.localName === 'code' && i + 1 < count) {
+            if (node.localName === 'code' && i + 1 < count && node.getAttribute('valid') !== 'false') {
                 var interpreter = new jsLisp.Interpreter();
                 var input = node.textContent.replace(/[\n\r]/g, ' ').trim();
 
