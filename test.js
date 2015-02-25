@@ -45,7 +45,7 @@ if (process.argv.length === 3) {
                             //console.log(input + ' -> ' + expectedResult);
                         } else {
                             // Got a different result
-                            console.log('*** Unexpected result: ' + input + ' -> ' + actualResult + '; expected: ' + expectedResult);
+                            console.log('*** Unexpected result (line ' + node.lineNumber + '): ' + input + ' -> ' + actualResult + '; expected: ' + expectedResult);
                         }
                     } else {
                         // Just log the code if there's no following result
@@ -53,7 +53,7 @@ if (process.argv.length === 3) {
                     }
                 } else {
                     // Code didn't compile
-                    console.log('*** Failed to compile: ' + input + ' -> ' + actualResult);
+                    console.log('*** Failed to compile (line ' + node.lineNumber + '): ' + input + ' -> ' + actualResult);
                 }
             }
         }
