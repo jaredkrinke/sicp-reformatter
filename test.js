@@ -3,6 +3,10 @@ var xpath = require('xpath');
 var DOMParser = require('xmldom').DOMParser;
 var jsLisp = require('../jsLisp/jsLisp.js');
 
+var getCode = function (node) {
+    return node.textContent.replace(/[\n\r]/g, ' ').trim();
+};
+
 // Read in the XML content
 if (process.argv.length === 3) {
     fs.readFile(process.argv[2], { encoding: 'utf8' }, function (err, body) {
@@ -10,51 +14,39 @@ if (process.argv.length === 3) {
             return console.log(err);
         }
 
-        // Make sure that code blocks produce the expected results
         var doc = (new DOMParser()).parseFromString(body);
-        var inlineCodeFilter = '//p//code[count(parent::footnote) = 0] | //figure/caption/code | //ul//code';
-        var nodes = xpath.select('//code[count(.|' + inlineCodeFilter + ') > count(' + inlineCodeFilter + ')]|//result', doc);
+
+        var nodes = xpath.select('//test', doc);
         for (var i = 0, count = nodes.length; i < count; i++) {
             var node = nodes[i];
-            if (node.localName === 'code' && i + 1 < count && node.getAttribute('valid') !== 'false') {
-                var interpreter = new jsLisp.Interpreter();
-                var input = node.textContent.replace(/[\n\r]/g, ' ').trim();
+            var interpreter = new jsLisp.Interpreter();
+            var input = getCode(node.childNodes[0]);
 
-                // Evaluate the code
-                var compiled = false;
-                var actualResult = undefined;
-                try {
-                    actualResult = interpreter.evaluate(input);
-                    if (actualResult !== undefined) {
-                        actualResult = interpreter.format(actualResult);
-                    }
-                    compiled = true;
-                } catch (e) {
-                    actualResult = e.toString();
+            // Evaluate the code
+            var compiled = false;
+            var actualResult = undefined;
+            try {
+                actualResult = interpreter.evaluate(input);
+                if (actualResult !== undefined) {
+                    actualResult = interpreter.format(actualResult);
                 }
+                compiled = true;
+            } catch (e) {
+                actualResult = e.toString();
+            }
 
-                if (compiled) {
-                    // If a result element follows, assume this code should generate the result
-                    var nextNode = nodes[i + 1];
-                    if (nextNode.localName === 'result') {
-                        var expectedResult = nextNode.textContent.trim();
+            if (compiled) {
+                var resultNode = node.childNodes[1];
+                var expectedResult = resultNode.textContent.trim();
 
-                        // Log result
-                        if (actualResult === expectedResult) {
-                            // Got the expected result
-                            //console.log(input + ' -> ' + expectedResult);
-                        } else {
-                            // Got a different result
-                            console.log('*** Unexpected result (line ' + node.lineNumber + '): ' + input + ' -> ' + actualResult + '; expected: ' + expectedResult);
-                        }
-                    } else {
-                        // Just log the code if there's no following result
-                        //console.log(input + ' (not evaluated)');
-                    }
-                } else {
-                    // Code didn't compile
-                    console.log('*** Failed to compile (line ' + node.lineNumber + '): ' + input + ' -> ' + actualResult);
+                if (expectedResult === '') {
+                    console.log('*** No expected result supplied: ' + input + ' -> ' + actualResult);
+                } else if (actualResult !== expectedResult) {
+                    console.log('*** Unexpected result: ' + input + ' -> ' + actualResult + '; expected: ' + expectedResult);
                 }
+            } else {
+                // Code didn't compile
+                console.log('*** Failed to compile: ' + input + ' -> ' + actualResult);
             }
         }
     });
