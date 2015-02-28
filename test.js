@@ -7,6 +7,18 @@ var getCode = function (node) {
     return node.textContent.replace(/[\n\r]/g, ' ').trim();
 };
 
+var areEqual = function(expected, actual) {
+    // If they're numbers, check to make sure they're roughly the same
+    var expectedNumber = parseFloat(expected);
+    var actualNumber = parseFloat(actual);
+    if (!isNaN(expectedNumber) && !isNaN(actualNumber)) {
+        var delta = Math.abs((actualNumber - expectedNumber) / expectedNumber);
+        return delta < 0.00000001;
+    } else {
+        return actual === expected;
+    }
+};
+
 // Read in the XML content
 if (process.argv.length === 3) {
     fs.readFile(process.argv[2], { encoding: 'utf8' }, function (err, body) {
@@ -41,7 +53,7 @@ if (process.argv.length === 3) {
 
                 if (expectedResult === '') {
                     console.log('*** No expected result supplied: ' + input + ' -> ' + actualResult);
-                } else if (actualResult !== expectedResult) {
+                } else if (!areEqual(expectedResult, actualResult)) {
                     console.log('*** Unexpected result: ' + input + ' -> ' + actualResult + '; expected: ' + expectedResult);
                 }
             } else {
