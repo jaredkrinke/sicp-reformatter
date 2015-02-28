@@ -45,7 +45,7 @@ var normalizeText = function (text) {
         .replace(/<\/?blockquote>/g, '')
         .replace(/<(em|strong)>/g, '<term>')
         .replace(/<\/(em|strong)>/g, '</term>')
-        .replace(/<tt>...<\/tt>/g, '...')
+        .replace(/<tt>\.\.\.<\/tt>/g, '...')
         .replace(/<(tt|i)>/g, '<code>')
         .replace(/<\/(tt|i)>/g, '</code>')
         .replace(/&nbsp;/g, ' ')
